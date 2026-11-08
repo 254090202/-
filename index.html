@@ -36,3 +36,250 @@
 <script src="app.js"></script>
 </body>
 </html>
+<!-- 顶部导航 -->
+<header class="bg-white shadow-sm sticky top-0 z-50">
+    <div class="max-w-4xl mx-auto px-4 h-14 flex justify-between items-center">
+        <div class="flex items-center gap-2">
+            <i class="fa-solid fa-book text-indigo-600"></i>
+            <span class="font-bold text-lg">书循环 Lite</span>
+        </div>
+        <div id="nav-area">
+            <button onclick="showLogin()" class="text-sm bg-indigo-600 text-white px-3 py-1.5 rounded hover:bg-indigo-700 transition">登录/认证</button>
+        </div>
+    </div>
+</header>
+
+<!-- 主内容区 -->
+<main class="flex-grow max-w-4xl mx-auto w-full px-4 py-6 fade-in">
+    
+    <!-- 未登录提示 -->
+    <div id="guest-view" class="text-center py-10">
+        <i class="fa-solid fa-lock text-4xl text-gray-300 mb-4"></i>
+        <h2 class="text-xl font-semibold text-gray-600">请先进行校园身份认证</h2>
+        <p class="text-gray-400 text-sm mt-2">认证后可查看书籍、发布闲置并建立信誉</p >
+        <button onclick="showLogin()" class="mt-6 text-indigo-600 hover:underline">去认证</button>
+    </div>
+
+    <!-- 已登录视图 -->
+    <div id="user-view" class="hidden space-y-6">
+        
+        <!-- 用户信息卡片 -->
+        <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-100 flex justify-between items-center">
+            <div>
+                <div class="flex items-center gap-2">
+                    <span id="u-name" class="font-bold text-lg"></span>
+                    <span id="u-badge" class="text-xs px-2 py-0.5 rounded-full"></span>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">学号: <span id="u-id"></span> | 信誉分: <span id="u-score" class="text-indigo-600 font-bold"></span></p >
+            </div>
+            <button onclick="logout()" class="text-xs text-red-500 hover:text-red-700">退出</button>
+        </div>
+
+        <!-- 操作栏 -->
+        <div class="flex gap-2">
+            <input type="text" id="search-box" placeholder="搜索书籍..." class="flex-grow px-3 py-2 border rounded-lg text-sm focus:outline-none focus:border-indigo-500" oninput="renderBooks()">
+            <button onclick="togglePublish()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700"><i class="fa-solid fa-plus mr-1"></i> 发布</button>
+        </div>
+
+        <!-- 发布表单 (默认隐藏) -->
+        <div id="publish-form" class="hidden bg-white p-4 rounded-lg shadow-sm border border-indigo-100">
+            <h3 class="font-semibold mb-3 text-sm">发布新书</h3>
+            <div class="grid grid-cols-2 gap-3 mb-3">
+                <input id="p-title" placeholder="书名" class="border p-2 rounded text-sm col-span-2">
+                <input id="p-price" type="number" placeholder="价格" class="border p-2 rounded text-sm">
+                <select id="p-cond" class="border p-2 rounded text-sm">
+                    <option value="new">全新</option>
+                    <option value="used">二手</option>
+                </select>
+            </div>
+            <button onclick="submitBook()" class="w-full bg-gray-800 text-white py-2 rounded text-sm">确认发布</button>
+        </div>
+
+        <!-- 书籍列表 -->
+        <div id="book-list" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <!-- JS 渲染区域 -->
+        </div>
+    </div>
+</main>
+
+<!-- 登录模态框 -->
+<div id="login-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+    <div class="bg-white p-6 rounded-lg w-80 shadow-xl">
+        <h3 class="font-bold text-lg mb-4">校园身份认证</h3>
+        <input id="l-name" placeholder="昵称" class="w-full border p-2 rounded mb-3 text-sm">
+        <input id="l-id" placeholder="学号 (如 2024001)" class="w-full border p-2 rounded mb-4 text-sm">
+        <div class="flex gap-2">
+            <button onclick="closeLogin()" class="flex-1 bg-gray-100 py-2 rounded text-sm">取消</button>
+            <button onclick="doLogin()" class="flex-1 bg-indigo-600 text-white py-2 rounded text-sm">认证进入</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- 核心数据与工具 ---
+    const DB = {
+        get: (k) => JSON.parse(localStorage.getItem(k) || 'null'),
+        set: (k, v) => localStorage.setItem(k, JSON.stringify(v)),
+        init: () => {
+            if (!localStorage.getItem('books')) {
+                localStorage.setItem('books', JSON.stringify([
+                    { id: 1, title: '高等数学', price: 20, cond: 'used', seller: 'Admin', sid: '000000', rep: 100 },
+                    { id: 2, title: 'Python编程', price: 45, cond: 'new', seller: 'UserA', sid: '111111', rep: 10 }
+                ]));
+            }
+        }
+    };
+
+    // --- 业务逻辑 ---
+    
+    // 1. 认证与信誉
+    function doLogin() {
+        const name = document.getElementById('l-name').value;
+        const sid = document.getElementById('l-id').value;
+        // 简单校验：6位以上数字
+        if (!name || !/^\d{6,}$/.test(sid)) return alert('请输入有效昵称和学号');
+        
+        const user = { name, sid, rep: 0, joined: new Date().toLocaleDateString() };
+        DB.set('user', user);
+        closeLogin();
+        refreshUI();
+    }
+
+    function logout() {
+        localStorage.removeItem('user');
+        refreshUI();
+    }
+
+    function getBadge(rep) {
+        if (rep >= 50) return { t: '靠谱同学', c: 'badge-expert' };
+        if (rep >= 10) return { t: '诚信交易', c: 'badge-pro' };
+        return { t: '新生', c: 'badge-new' };
+    }
+
+    // 2. 书籍操作
+    function submitBook() {
+        const title = document.getElementById('p-title').value;
+        const price = document.getElementById('p-price').value;
+        if (!title || !price) return alert('请填写完整');
+        
+        const user = DB.get('user');
+        const books = DB.get('books') || [];
+        books.unshift({
+            id: Date.now(),
+            title, 
+            price, 
+            cond: document.getElementById('p-cond').value,
+            seller: user.name,
+            sid: user.sid,
+            rep: user.rep
+        });
+        DB.set('books', books);
+        togglePublish();
+        renderBooks();
+    }
+
+    function buyBook(id, sellerSid) {
+        if (!confirm('模拟购买？这将增加卖家信誉。')) return;
+        
+        // 更新卖家信誉
+        const user = DB.get('user');
+        const books = DB.get('books');
+        
+        // 如果当前登录用户是卖家（模拟自买自卖测试，或实际场景中更新对应ID用户）
+        // 这里简化为：在本地用户如果是卖家，则加分；同时更新书籍列表中的快照
+        let updated = false;
+        if (user && user.sid === sellerSid) {
+            user.rep += 10;
+            DB.set('user', user);
+            updated = true;
+        }
+
+        // 更新列表中该卖家的所有书籍信誉显示
+        books.forEach(b => {
+            if (b.sid === sellerSid) b.rep = (b.rep || 0) + 10;
+        });
+        DB.set('books', books);
+        
+        if(updated) alert('交易成功！您的信誉分 +10');
+        else alert('交易成功！卖家信誉已更新。');
+        
+        refreshUI();
+    }
+
+    // --- UI 渲染 ---
+
+    function refreshUI() {
+        const user = DB.get('user');
+        const guestView = document.getElementById('guest-view');
+        const userView = document.getElementById('user-view');
+        const navArea = document.getElementById('nav-area');
+
+        if (user) {
+            guestView.classList.add('hidden');
+            userView.classList.remove('hidden');
+            navArea.innerHTML = `<span class="text-xs text-gray-500 mr-2">Hi, ${user.name}</span>`;
+            
+            // 更新个人信息
+            document.getElementById('u-name').textContent = user.name;
+            document.getElementById('u-id').textContent = user.sid;
+            document.getElementById('u-score').textContent = user.rep;
+            const badge = getBadge(user.rep);
+            const badgeEl = document.getElementById('u-badge');
+            badgeEl.textContent = badge.t;
+            badgeEl.className = `text-xs px-2 py-0.5 rounded-full ${badge.c}`;
+            
+            renderBooks();
+        } else {
+            guestView.classList.remove('hidden');
+            userView.classList.add('hidden');
+            navArea.innerHTML = `<button onclick="showLogin()" class="text-sm bg-indigo-600 text-white px-3 py-1.5 rounded hover:bg-indigo-700 transition">登录/认证</button>`;
+        }
+    }
+
+    function renderBooks() {
+        const list = document.getElementById('book-list');
+        const term = document.getElementById('search-box').value.toLowerCase();
+        const books = (DB.get('books') || []).filter(b => b.title.toLowerCase().includes(term));
+        const currentUser = DB.get('user');
+
+        list.innerHTML = books.map(b => {
+            const badge = getBadge(b.rep || 0);
+            const isMe = currentUser && currentUser.sid === b.sid;
+            return `
+            <div class="bg-white p-3 rounded-lg shadow-sm border border-gray-100 flex gap-3">
+                <div class="w-16 h-20 bg-gray-200 rounded flex-shrink-0 overflow-hidden">
+                     < img src="https://picsum.photos/100/150?random=${b.id}" alt="${b.title}封面" class="w-full h-full object-cover">
+                </div>
+                <div class="flex-grow flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-start">
+                            <h4 class="font-bold text-gray-800 text-sm truncate pr-2">${b.title}</h4>
+                            <span class="text-indigo-600 font-bold text-sm">¥${b.price}</span>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">${b.cond === 'new' ? '全新' : '二手'} · ${b.seller}</p >
+                    </div>
+                    <div class="flex justify-between items-center mt-2">
+                        <span class="text-[10px] px-1.5 py-0.5 rounded ${badge.c}">${badge.t}</span>
+                        ${isMe 
+                            ? '<span class="text-xs text-gray-400">我的发布</span>' 
+                            : `<button onclick="buyBook(${b.id}, '${b.sid}')" class="text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded hover:bg-indigo-100">联系购买</button>`
+                        }
+                    </div>
+                </div>
+            </div>
+            `;
+        }).join('');
+    }
+
+    // --- 交互控制 ---
+    function showLogin() { document.getElementById('login-modal').classList.replace('hidden', 'flex'); }
+    function closeLogin() { document.getElementById('login-modal').classList.replace('flex', 'hidden'); }
+    function togglePublish() { 
+        const form = document.getElementById('publish-form');
+        form.classList.toggle('hidden');
+    }
+
+    // 初始化
+    DB.init();
+    refreshUI();
+</script>
