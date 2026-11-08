@@ -283,3 +283,220 @@
     DB.init();
     refreshUI();
 </script>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>二手书平台智能客服</title>
+    <style>
+        /* 客服窗口基础样式 */
+        .ai-chat-widget {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 9999;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        /* 悬浮触发按钮 */
+        .chat-float-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: #2563eb;
+            color: white;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+            transition: all 0.3s ease;
+        }
+        .chat-float-btn:hover {
+            transform: scale(1.1);
+            background: #1d4ed8;
+        }
+
+        /* 聊天主窗口 */
+        .chat-window {
+            width: 380px;
+            height: 520px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            display: none;
+            flex-direction: column;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+
+        /* 窗口头部 */
+        .chat-header {
+            background: #2563eb;
+            color: white;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .chat-header h3 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 500;
+        }
+        .close-btn {
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        /* 消息区域 */
+        .chat-body {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            background: #f8fafc;
+        }
+        .message {
+            margin-bottom: 15px;
+            max-width: 80%;
+            padding: 10px 15px;
+            border-radius: 18px;
+            line-height: 1.5;
+            animation: fadeIn 0.3s ease-out;
+        }
+        .user-msg {
+            background: #2563eb;
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+        .bot-msg {
+            background: white;
+            color: #1e293b;
+            margin-right: auto;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        /* 输入区域 */
+        .chat-input-area {
+            display: flex;
+            padding: 12px;
+            border-top: 1px solid #e2e8f0;
+            background: white;
+        }
+        #chatInput {
+            flex: 1;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            outline: none;
+        }
+        #sendBtn {
+            margin-left: 10px;
+            padding: 10px 18px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+        }
+
+        /* 消息动画 */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 客服组件挂载点 -->
+    <div class="ai-chat-widget">
+        <div class="chat-window" id="chatWindow">
+            <div class="chat-header">
+                <h3>📚 二手书智能客服</h3>
+                <button class="close-btn" onclick="toggleChat()">×</button>
+            </div>
+            <div class="chat-body" id="chatBody"></div>
+            <div class="chat-input-area">
+                <input type="text" id="chatInput" placeholder="咨询书籍、订单、回收相关问题...">
+                <button id="sendBtn">发送</button>
+            </div>
+        </div>
+        <button class="chat-float-btn" onclick="toggleChat()">💬</button>
+    </div>
+
+    <script>
+        // 客服核心逻辑
+        const chatBody = document.getElementById('chatBody');
+        const chatInput = document.getElementById('chatInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const chatWindow = document.getElementById('chatWindow');
+
+        // 适配二手书平台的预置问答库
+        const qaLibrary = {
+            "回收": "你可以在「卖家端-提交收书申请」页面填写书籍信息，我们会在24小时内审核，审核通过后安排上门取件~",
+            "价格": "平台采用A九成新/B八成新/C七成新的统一定价规则，提交书籍后系统会自动计算回收价，收益65%归卖家所有哦。",
+            "订单": "你可以在「我的-订单管理」中查看所有订单状态，包含待发货、配送中、已完成等全流程进度。",
+            "配送": "平台支持自助配送和上门取件两种方式，下单后会自动生成取件码，你可以在订单页实时查看物流轨迹。",
+            "收益": "书籍成功售出后，65%的收益会自动结算到你的账户余额，支持随时提现到微信/支付宝。",
+            "分类": "平台书籍分为教材、考研考公、课外读物、文学小说等多个分类，你可以在首页顶部筛选栏快速找到目标书籍。"
+        };
+
+        // 窗口切换函数
+        function toggleChat() {
+            chatWindow.style.display = chatWindow.style.display === 'flex' ? 'none' : 'flex';
+        }
+
+        // 发送消息函数
+        function sendMessage() {
+            const inputText = chatInput.value.trim();
+            if (!inputText) return;
+            
+            // 添加用户消息
+            addMessage(inputText, 'user');
+            chatInput.value = '';
+
+            // 匹配AI回复
+            setTimeout(() => {
+                let reply = "抱歉，我暂时没理解你的问题，你可以咨询书籍回收、订单查询、价格规则相关的内容哦~";
+                for(let key in qaLibrary) {
+                    if(inputText.includes(key)) {
+                        reply = qaLibrary[key];
+                        break;
+                    }
+                }
+                addMessage(reply, 'bot');
+            }, 600);
+        }
+
+        // 渲染消息气泡
+        function addMessage(text, type) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${type}-msg`;
+            msgDiv.innerText = text;
+            chatBody.appendChild(msgDiv);
+            // 自动滚动到底部
+            chatBody.scrollTop = chatBody.scrollHeight;
+        }
+
+        // 事件绑定
+        sendBtn.addEventListener('click', sendMessage);
+        chatInput.addEventListener('keydown', (e) => {
+            if(e.key === 'Enter') sendMessage();
+        });
+
+        // 初始化欢迎语
+        addMessage("你好呀👋 我是二手书平台智能客服，有什么关于收书、买书、订单的问题都可以问我~", 'bot');
+    </script>
+</body>
+</html>
