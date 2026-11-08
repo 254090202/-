@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>书循环 BookLoop · 校园二手书统一收售平台</title>
+<meta name="description" content="校园二手书收书、质检、统一定价与集中售卖平台原型">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap topbar-inner">
+    <a class="brand" href="#/shop">
+      <span class="brand-mark">书</span>
+      <span class="brand-text"><strong>书循环</strong><em>BookLoop</em></span>
+    </a>
+    <nav class="role-nav" id="roleNav" aria-label="角色切换"></nav>
+    <div class="top-actions" id="topActions"></div>
+  </div>
+</header>
+
+<main class="wrap" id="app"></main>
+
+<footer class="footer">
+  <div class="wrap footer-inner">
+    <p>书循环 BookLoop · 校园二手书「收书 → 质检 → 统一定价 → 集中售卖」原型</p>
+    <p class="footer-note">
+      演示数据保存在浏览器本地（localStorage），可随时
+      <button class="link-btn" type="button" data-action="reset">重置演示数据</button>
+    </p>
+  </div>
+</footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
